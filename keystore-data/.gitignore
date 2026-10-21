@@ -1,0 +1,5 @@
+# Ignore all keystore private key files
+*.p12
+*.key
+*.pem
+!README.md
