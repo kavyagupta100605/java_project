@@ -2,8 +2,10 @@ import React from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 
 const STATUS_COLORS = {
+  VALID: '#10b981',
   ACTIVE: '#10b981',
-  EXPIRED: '#f59e0b',
+  EXPIRING: '#f59e0b',
+  EXPIRED: '#ef4444',
   REVOKED: '#f43f5e',
   SUSPENDED: '#8b5cf6',
   PENDING: '#0ea5e9',
@@ -24,7 +26,8 @@ function CustomDonutTooltip({ active, payload }) {
 }
 
 export default function StatusDonut({ data = [], totalCount = 0 }) {
-  const chartData = data.map((item) => ({
+  const safeData = Array.isArray(data) ? data : [];
+  const chartData = safeData.map((item) => ({
     name: item.status,
     value: item.count,
     fill: STATUS_COLORS[item.status] || '#64748b',

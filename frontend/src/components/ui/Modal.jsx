@@ -3,12 +3,14 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
 import { fadeScale } from "../../lib/motion";
 
-export default function Modal({ open, onClose, title, children, maxWidth = "max-w-lg" }) {
+export default function Modal({ open, isOpen, onClose, title, children, maxWidth = "max-w-lg" }) {
+  const isVisible = Boolean(open ?? isOpen);
+
   useEffect(() => {
     const handleKeyDown = e => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") onClose?.();
     };
-    if (open) {
+    if (isVisible) {
       window.addEventListener("keydown", handleKeyDown);
       document.body.style.overflow = "hidden";
     }
@@ -16,11 +18,11 @@ export default function Modal({ open, onClose, title, children, maxWidth = "max-
       window.removeEventListener("keydown", handleKeyDown);
       document.body.style.overflow = "unset";
     };
-  }, [open, onClose]);
+  }, [isVisible, onClose]);
 
   return (
     <AnimatePresence>
-      {open && (
+      {isVisible && (
         <motion.div
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md"
           initial={{ opacity: 0 }}

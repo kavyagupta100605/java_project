@@ -126,9 +126,7 @@ export default function Certificates() {
     const formData = new FormData();
     formData.append('file', uploadFile);
     try {
-      await api.post('/certs/upload', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      await api.post('/certs/upload', formData);
       toast.success('Certificate uploaded and registered successfully!');
       setUploadModalOpen(false);
       setUploadFile(null);
@@ -259,17 +257,23 @@ export default function Certificates() {
         <div className="flex items-center gap-2">
           <Filter className="w-4 h-4 text-slate-400" />
           <span className="text-xs font-semibold text-slate-400">Filter Status:</span>
-          {['', 'ACTIVE', 'EXPIRED', 'REVOKED'].map((st) => (
+          {[
+            { label: 'All', value: '' },
+            { label: 'Valid', value: 'VALID' },
+            { label: 'Expiring', value: 'EXPIRING' },
+            { label: 'Expired', value: 'EXPIRED' },
+            { label: 'Revoked', value: 'REVOKED' },
+          ].map((st) => (
             <button
-              key={st}
-              onClick={() => setStatusFilter(st)}
+              key={st.value}
+              onClick={() => setStatusFilter(st.value)}
               className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
-                statusFilter === st
+                statusFilter === st.value
                   ? 'bg-indigo-600 text-white'
                   : 'bg-slate-900/60 hover:bg-slate-800 text-slate-400'
               }`}
             >
-              {st || 'All'}
+              {st.label}
             </button>
           ))}
         </div>
@@ -396,7 +400,7 @@ export default function Certificates() {
                 <option value="">None (Soft Keystore)</option>
                 {tokens.map((t) => (
                   <option key={t.id} value={t.id}>
-                    {t.serialNumber} ({t.model})
+                    {t.serialNo || t.serialNumber} {t.label ? `(${t.label})` : ''}
                   </option>
                 ))}
               </select>

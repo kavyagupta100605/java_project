@@ -50,17 +50,24 @@ export default function AuditLogs() {
     {
       header: 'Actor',
       field: 'username',
-      render: (val) => <span className="font-semibold text-slate-200">{val || 'System / Anonymous'}</span>,
+      render: (val, row) => (
+        <span className="font-semibold text-slate-200">
+          {val || row?.actor || (row?.userId ? `User #${row.userId}` : 'System / Administrator')}
+        </span>
+      ),
     },
     {
       header: 'Client IP',
       field: 'ipAddress',
-      render: (val) => <span className="font-mono text-xs text-slate-400">{val || '127.0.0.1'}</span>,
+      render: (val, row) => <span className="font-mono text-xs text-slate-400">{val || row?.ip || '127.0.0.1'}</span>,
     },
     {
       header: 'Timestamp',
-      field: 'timestamp',
-      render: (val) => new Date(val).toLocaleString(),
+      field: 'createdAt',
+      render: (val, row) => {
+        const time = val || row?.timestamp;
+        return time ? new Date(time).toLocaleString() : '—';
+      },
     },
   ];
 
@@ -113,7 +120,7 @@ export default function AuditLogs() {
         columns={columns}
         data={logs}
         loading={loading}
-        searchKeys={['action', 'username', 'ipAddress']}
+        searchKeys={['action', 'username', 'ip', 'ipAddress', 'details']}
         searchPlaceholder="Filter audit records by Action, Actor..."
         renderExpandedRow={renderExpandedRow}
       />

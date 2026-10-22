@@ -1,5 +1,6 @@
 package com.keybridge.controller;
 
+import com.keybridge.audit.Audited;
 import com.keybridge.dto.cert.CertResponse;
 import com.keybridge.dto.cert.IssueCertRequest;
 import com.keybridge.dto.cert.RevokeCertRequest;
@@ -32,11 +33,22 @@ public class CertificateController {
 
     @GetMapping
     public ResponseEntity<List<CertResponse>> listCertificates(
-            @RequestParam(required = false) CertStatus status,
+            @RequestParam(required = false) String status,
             @RequestParam(required = false) String q
     ) {
         User currentUser = authService.getCurrentUserEntity();
-        return ResponseEntity.ok(certificateService.listCertificates(status, q, currentUser));
+        CertStatus certStatus = null;
+        if (status != null && !status.isBlank()) {
+            if ("ACTIVE".equalsIgnoreCase(status)) {
+                certStatus = CertStatus.VALID;
+            } else {
+                try {
+                    certStatus = CertStatus.valueOf(status.trim().toUpperCase());
+                } catch (IllegalArgumentException ignored) {
+                }
+            }
+        }
+        return ResponseEntity.ok(certificateService.listCertificates(certStatus, q, currentUser));
     }
 
     @GetMapping("/{id}")
@@ -53,6 +65,7 @@ public class CertificateController {
 
     @PostMapping({"/issue", "/issue-test"})
     @PreAuthorize("hasRole('ADMIN')")
+    @Audited("CERTIFICATE_ISSUE")
     public ResponseEntity<CertResponse> issueTestCertificate(@Valid @RequestBody IssueCertRequest request) {
         User currentUser = authService.getCurrentUserEntity();
         return ResponseEntity.status(HttpStatus.CREATED).body(certificateService.issueTestCertificate(request, currentUser));
@@ -60,6 +73,7 @@ public class CertificateController {
 
     @PostMapping("/upload")
     @PreAuthorize("hasRole('ADMIN')")
+    @Audited("CERTIFICATE_UPLOAD")
     public ResponseEntity<CertResponse> uploadCertificate(
             @RequestParam("file") MultipartFile file,
             @RequestParam(value = "userId", required = false) Long userId
@@ -70,6 +84,7 @@ public class CertificateController {
 
     @RequestMapping(value = "/{id}/revoke", method = {RequestMethod.PUT, RequestMethod.POST})
     @PreAuthorize("hasRole('ADMIN')")
+    @Audited("CERTIFICATE_REVOKE")
     public ResponseEntity<CertResponse> revokeCertificate(
             @PathVariable Long id,
             @RequestBody(required = false) RevokeCertRequest request,

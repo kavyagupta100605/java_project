@@ -34,10 +34,18 @@ export default function SignDocument() {
   const fetchCertsAndHistory = async () => {
     try {
       const [certRes, histRes] = await Promise.all([
-        api.get('/certs?status=ACTIVE'),
+        api.get('/certs'),
         api.get('/signed-documents'),
       ]);
-      const activeCerts = certRes.data || [];
+      const allCerts = certRes.data || [];
+      const usableCerts = allCerts.filter(
+        (c) => (c.status === 'VALID' || c.status === 'EXPIRING') && (c.hasPrivateKey !== false)
+      );
+      // Fallback to all valid/expiring certs if none explicitly have hasPrivateKey flag
+      const activeCerts = usableCerts.length > 0
+        ? usableCerts
+        : allCerts.filter((c) => c.status === 'VALID' || c.status === 'EXPIRING');
+
       setCerts(activeCerts);
       if (activeCerts.length > 0 && !selectedCertId) {
         setSelectedCertId(activeCerts[0].id);
@@ -74,12 +82,13 @@ export default function SignDocument() {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('certificateId', selectedCertId);
-    formData.append('keystorePassword', keystorePassword);
+    formData.append('certId', selectedCertId);
+    if (keystorePassword) {
+      formData.append('keystorePassword', keystorePassword);
+    }
 
     try {
-      const res = await api.post('/sign', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      const res = await api.post('/sign', formData);
 
       setPipelineStep(4);
       setSignResult(res.data);
@@ -94,16 +103,23 @@ export default function SignDocument() {
   };
 
   const downloadSignatureFile = () => {
-    if (!signResult?.signatureBase64) return;
-    const blob = new Blob([signResult.signatureBase64], { type: 'text/plain;charset=utf-8' });
+    const signatureText = signResult?.signatureB64 || signResult?.signatureBase64;
+    if (!signatureText) {
+      toast.error('No signature data available to download');
+      return;
+    }
+    const blob = new Blob([signatureText], { type: 'text/plain;charset=utf-8' });
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `${signResult.documentName || 'document'}.sig`);
+    const docName = file?.name || signResult?.documentName || 'document';
+    const baseName = docName.replace(/\.[^/.]+$/, "");
+    link.setAttribute('download', `${baseName}.sig`);
     document.body.appendChild(link);
     link.click();
     link.remove();
-    toast.success('Downloaded signature (.sig) file');
+    window.URL.revokeObjectURL(url);
+    toast.success(`Downloaded ${baseName}.sig`);
   };
 
   const handleReset = () => {
@@ -116,28 +132,36 @@ export default function SignDocument() {
   const historyColumns = [
     {
       header: 'Document Name',
-      field: 'documentName',
-      render: (val) => (
+      field: 'fileName',
+      render: (val, row) => (
         <div className="flex items-center gap-2">
           <FileText className="w-4 h-4 text-indigo-400" />
-          <span className="font-semibold text-slate-100">{val}</span>
+          <span className="font-semibold text-slate-100">{val || row?.documentName || 'document'}</span>
         </div>
       ),
     },
     {
       header: 'SHA-256 Digest',
-      field: 'documentHash',
-      render: (val) => <span className="font-mono text-xs text-slate-400 truncate max-w-[160px] block">{val}</span>,
+      field: 'docHash',
+      render: (val, row) => (
+        <span className="font-mono text-xs text-slate-400 truncate max-w-[160px] block">
+          {val || row?.documentHash || '—'}
+        </span>
+      ),
     },
     {
       header: 'Signing Certificate',
-      field: 'certificateSubject',
-      render: (val) => <span className="text-xs text-slate-300 truncate max-w-[180px] block">{val}</span>,
+      field: 'certSubject',
+      render: (val, row) => (
+        <span className="text-xs text-slate-300 truncate max-w-[180px] block">
+          {val || row?.certificateSubject || 'Certificate'}
+        </span>
+      ),
     },
     {
       header: 'Signed At',
       field: 'signedAt',
-      render: (val) => new Date(val).toLocaleString(),
+      render: (val) => (val ? new Date(val).toLocaleString() : '—'),
     },
   ];
 
@@ -183,8 +207,10 @@ export default function SignDocument() {
                           <div className="flex items-center gap-3">
                             <Shield className={`w-4 h-4 ${isSelected ? 'text-indigo-400' : 'text-slate-500'}`} />
                             <div>
-                              <p className="text-xs font-semibold text-slate-200">{c.subjectDn}</p>
-                              <p className="text-[10px] text-slate-400 font-mono">SN: {c.serialNumber?.slice(0, 16)}...</p>
+                              <p className="text-xs font-semibold text-slate-200">{c.subjectDn || c.subject}</p>
+                              <p className="text-[10px] text-slate-400 font-mono">
+                                SN: {(c.serialNumber || c.serialHex || '').slice(0, 16)}...
+                              </p>
                             </div>
                           </div>
                           {isSelected && <CheckCircle2 className="w-4 h-4 text-indigo-400 shrink-0" />}
@@ -245,7 +271,7 @@ export default function SignDocument() {
             <div className="space-y-6">
               <SigningProgress
                 activeStep={pipelineStep}
-                docHash={signResult?.documentHash}
+                docHash={signResult?.docHash || signResult?.documentHash}
                 isComplete={signComplete}
               />
 
@@ -272,7 +298,7 @@ export default function SignDocument() {
                       Base64 Signature Output
                     </span>
                     <p className="font-mono text-xs text-indigo-300 break-all max-h-24 overflow-y-auto">
-                      {signResult?.signatureBase64}
+                      {signResult?.signatureB64 || signResult?.signatureBase64}
                     </p>
                   </div>
 
@@ -336,7 +362,7 @@ export default function SignDocument() {
         <DataTable
           columns={historyColumns}
           data={history}
-          searchKeys={['documentName', 'documentHash', 'certificateSubject']}
+          searchKeys={['fileName', 'documentName', 'docHash', 'certSubject']}
           searchPlaceholder="Search signed documents..."
         />
       </div>

@@ -32,6 +32,8 @@ export default function Dashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
+  
+
   const fetchDashboardData = async () => {
     setLoading(true);
     try {
@@ -43,9 +45,21 @@ export default function Dashboard() {
       ]);
 
       setData(dashRes.data);
-      setActivityData(actRes.data || []);
-      setDistributionData(distRes.data || []);
-      setExpiryTimeline(expRes.data || []);
+      setActivityData(Array.isArray(actRes.data) ? actRes.data : []);
+
+      // Normalize status distribution: backend returns Map<String, Long> { VALID: 5, ... } or Array
+      const rawDist = distRes.data;
+      const formattedDist = Array.isArray(rawDist)
+        ? rawDist
+        : rawDist && typeof rawDist === 'object'
+        ? Object.entries(rawDist).map(([status, count]) => ({
+            status,
+            count: Number(count) || 0,
+          }))
+        : [];
+      setDistributionData(formattedDist);
+
+      setExpiryTimeline(Array.isArray(expRes.data) ? expRes.data : []);
     } catch (err) {
       console.error('Failed to load dashboard', err);
       toast.error('Unable to fetch cryptographic dashboard metrics');
@@ -57,6 +71,12 @@ export default function Dashboard() {
   useEffect(() => {
     fetchDashboardData();
   }, [activityDays]);
+
+  const safeDistributionData = Array.isArray(distributionData) ? distributionData : [];
+  const totalCertificates = safeDistributionData.reduce(
+    (acc, curr) => acc + (Number(curr?.count) || 0),
+    0
+  );
 
   return (
     <div className="space-y-8">
@@ -105,31 +125,35 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         <StatCard
           title="Active Certificates"
-          value={data?.activeCertificatesCount || 0}
+          value={data?.valid ?? data?.activeCertificatesCount ?? 0}
           icon={Shield}
           color="indigo"
           subtitle="Trusted by KeyBridge Root CA"
+          onClick={() => navigate('/certificates')}
         />
         <StatCard
           title="Hardware / Soft Tokens"
-          value={data?.totalTokensCount || 0}
+          value={data?.totalTokens ?? data?.totalTokensCount ?? 0}
           icon={KeyRound}
           color="emerald"
-          subtitle={`${data?.assignedTokensCount || 0} assigned to operators`}
+          subtitle={`${data?.assignedTokens ?? data?.assignedTokensCount ?? 0} assigned to operators`}
+          onClick={() => navigate('/tokens')}
         />
         <StatCard
           title="Pending Requests"
-          value={data?.pendingRequestsCount || 0}
+          value={data?.pendingRequests ?? data?.pendingRequestsCount ?? 0}
           icon={Clock}
           color="amber"
           subtitle="Awaiting administrative approval"
+          onClick={() => navigate('/requests')}
         />
         <StatCard
           title="Expiring Within 30 Days"
-          value={data?.expiringCount || 0}
+          value={data?.expiring ?? data?.expiringCount ?? 0}
           icon={AlertTriangle}
           color="rose"
           subtitle="Action required for renewal"
+          onClick={() => navigate('/certificates')}
         />
       </div>
 
@@ -173,14 +197,14 @@ export default function Dashboard() {
           </div>
 
           <StatusDonut
-            data={distributionData}
-            totalCount={distributionData.reduce((acc, curr) => acc + curr.count, 0)}
+            data={safeDistributionData}
+            totalCount={totalCertificates}
           />
 
           <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-800 text-xs">
-            {distributionData.map((d) => (
+            {safeDistributionData.map((d) => (
               <div key={d.status} className="flex items-center justify-between p-1.5 rounded bg-slate-900/40">
-                <span className="text-slate-400 capitalize">{d.status.toLowerCase()}</span>
+                <span className="text-slate-400 capitalize">{(d.status || "").toLowerCase()}</span>
                 <span className="font-mono font-bold text-slate-200">{d.count}</span>
               </div>
             ))}
@@ -223,32 +247,28 @@ export default function Dashboard() {
               <thead className="bg-slate-900/60 uppercase text-[10px] text-slate-400 font-semibold tracking-wider border-b border-slate-800">
                 <tr>
                   <th className="py-2.5 px-3">Status</th>
-                  <th className="py-2.5 px-3">Signer Subject</th>
-                  <th className="py-2.5 px-3">Serial Number</th>
+                  <th className="py-2.5 px-3">Document / Subject</th>
                   <th className="py-2.5 px-3">Timestamp</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/40 text-slate-300">
                 {!data?.recentVerifications || data.recentVerifications.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="text-center py-6 text-slate-500">
+                    <td colSpan={3} className="text-center py-6 text-slate-500">
                       No verifications performed yet. Submit a signed document to test.
                     </td>
                   </tr>
                 ) : (
-                  data.recentVerifications.map((v) => (
-                    <tr key={v.id} className="hover:bg-slate-800/30 transition-colors">
+                  data.recentVerifications.map((v, idx) => (
+                    <tr key={v.id || idx} className="hover:bg-slate-800/30 transition-colors">
                       <td className="py-2.5 px-3">
                         <StatusBadge status={v.result} size="sm" />
                       </td>
-                      <td className="py-2.5 px-3 font-medium text-slate-200 truncate max-w-[180px]">
-                        {v.signerSubject || 'Unknown'}
-                      </td>
-                      <td className="py-2.5 px-3 font-mono text-slate-400 truncate max-w-[140px]">
-                        {v.certificateSerialNumber ? v.certificateSerialNumber.slice(0, 12) + '...' : '—'}
+                      <td className="py-2.5 px-3 font-medium text-slate-200 truncate max-w-[200px]">
+                        {v.file || v.signerSubject || 'Document'}
                       </td>
                       <td className="py-2.5 px-3 text-slate-400 whitespace-nowrap">
-                        {new Date(v.verifiedAt).toLocaleTimeString()}
+                        {v.at || v.verifiedAt ? new Date(v.at || v.verifiedAt).toLocaleTimeString() : '—'}
                       </td>
                     </tr>
                   ))

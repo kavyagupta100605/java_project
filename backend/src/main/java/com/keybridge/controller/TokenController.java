@@ -1,5 +1,6 @@
 package com.keybridge.controller;
 
+import com.keybridge.audit.Audited;
 import com.keybridge.dto.token.AssignTokenRequest;
 import com.keybridge.dto.token.CreateTokenRequest;
 import com.keybridge.dto.token.TokenResponse;
@@ -40,12 +41,14 @@ public class TokenController {
 
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
+    @Audited("TOKEN_CREATE")
     public ResponseEntity<TokenResponse> createToken(@Valid @RequestBody CreateTokenRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(tokenService.createToken(request));
     }
 
     @PutMapping("/{id}/assign")
     @PreAuthorize("hasRole('ADMIN')")
+    @Audited("TOKEN_ASSIGN")
     public ResponseEntity<TokenResponse> assignToken(
             @PathVariable Long id,
             @Valid @RequestBody AssignTokenRequest request
@@ -55,6 +58,7 @@ public class TokenController {
 
     @PutMapping("/{id}/status")
     @PreAuthorize("hasRole('ADMIN')")
+    @Audited("TOKEN_STATUS_UPDATE")
     public ResponseEntity<TokenResponse> updateStatus(
             @PathVariable Long id,
             @Valid @RequestBody UpdateTokenStatusRequest request

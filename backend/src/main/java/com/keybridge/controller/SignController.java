@@ -1,5 +1,6 @@
 package com.keybridge.controller;
 
+import com.keybridge.audit.Audited;
 import com.keybridge.dto.sign.SignResponse;
 import com.keybridge.dto.sign.SignedDocumentResponse;
 import com.keybridge.entity.User;
@@ -25,6 +26,7 @@ public class SignController {
     }
 
     @PostMapping("/sign")
+    @Audited("DOCUMENT_SIGN")
     public ResponseEntity<SignResponse> signDocument(
             @RequestParam(value = "certId", required = false) Long certId,
             @RequestParam(value = "certificateId", required = false) Long certificateId,

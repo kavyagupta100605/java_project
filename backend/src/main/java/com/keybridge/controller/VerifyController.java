@@ -1,5 +1,6 @@
 package com.keybridge.controller;
 
+import com.keybridge.audit.Audited;
 import com.keybridge.dto.verify.VerificationLogResponse;
 import com.keybridge.dto.verify.VerifyResponse;
 import com.keybridge.entity.User;
@@ -28,6 +29,7 @@ public class VerifyController {
     }
 
     @PostMapping("/verify")
+    @Audited("DOCUMENT_VERIFY")
     public ResponseEntity<VerifyResponse> verify(
             @RequestParam(value = "file", required = false) MultipartFile file,
             @RequestParam(value = "document", required = false) MultipartFile document,

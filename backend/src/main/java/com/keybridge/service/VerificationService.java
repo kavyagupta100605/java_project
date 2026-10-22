@@ -188,7 +188,31 @@ public class VerificationService {
         l.setReason(reason);
         verificationLogRepository.save(l);
 
-        return new VerifyResponse(r, reason, steps);
+        String signerSubject = null;
+        String issuerSubject = null;
+        String serial = null;
+        String docHash = null;
+
+        if (certId != null) {
+            certificateRepository.findById(certId).ifPresent(c -> {
+                // c.getSubject(), c.getIssuer(), c.getSerialHex()
+            });
+            Optional<Certificate> optCert = certificateRepository.findById(certId);
+            if (optCert.isPresent()) {
+                Certificate c = optCert.get();
+                signerSubject = c.getSubject();
+                issuerSubject = c.getIssuer();
+                serial = c.getSerialHex();
+            }
+        }
+
+        if (f != null) {
+            try {
+                docHash = cryptoService.sha256Hex(f.getBytes());
+            } catch (Exception ignored) {}
+        }
+
+        return new VerifyResponse(r, reason, steps, signerSubject, issuerSubject, serial, docHash, java.time.LocalDateTime.now());
     }
 
     @Transactional(readOnly = true)

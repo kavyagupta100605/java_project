@@ -16,10 +16,11 @@ function CustomBarTooltip({ active, payload, label }) {
 }
 
 export default function ExpiryBarChart({ data = [] }) {
+  const safeData = Array.isArray(data) ? data : [];
   return (
     <div className="w-full h-64">
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+        <BarChart data={safeData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
           <XAxis
             dataKey="month"
@@ -37,7 +38,7 @@ export default function ExpiryBarChart({ data = [] }) {
           />
           <Tooltip content={<CustomBarTooltip />} />
           <Bar dataKey="count" radius={[6, 6, 0, 0]}>
-            {data.map((entry, index) => (
+            {safeData.map((entry, index) => (
               <Cell
                 key={`cell-${index}`}
                 fill={entry.count > 5 ? '#f43f5e' : entry.count > 0 ? '#f59e0b' : '#3b82f6'}

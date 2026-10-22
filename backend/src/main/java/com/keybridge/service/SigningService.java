@@ -88,7 +88,7 @@ public class SigningService {
         d.setAlgorithm("SHA256withRSA");
         signedDocumentRepository.save(d);
 
-        return new SignResponse(d.getId(), d.getDocHash(), d.getSignatureB64(), cert.getSha256Fingerprint());
+        return new SignResponse(d.getId(), d.getDocHash(), d.getSignatureB64(), cert.getSha256Fingerprint(), d.getFileName());
     }
 
     @Transactional(readOnly = true)

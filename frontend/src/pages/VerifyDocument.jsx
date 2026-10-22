@@ -124,9 +124,7 @@ export default function VerifyDocument() {
     }
 
     try {
-      const res = await api.post('/verify', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      const res = await api.post('/verify', formData);
 
       setActiveStepIndex(5);
       setVerifyResult(res.data);
@@ -268,7 +266,7 @@ export default function VerifyDocument() {
                 >
                   {existingCerts.map((c) => (
                     <option key={c.id} value={c.id}>
-                      {c.subjectDn} (SN: {c.serialNumber?.slice(0, 14)}...) - {c.status}
+                      {c.subjectDn || c.subject} (SN: {(c.serialNumber || c.serialHex || '').slice(0, 14)}...) - {c.status}
                     </option>
                   ))}
                 </select>
